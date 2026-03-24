@@ -1,0 +1,243 @@
+{
+  "tasks": [
+    {
+      "task": "User Interface",
+      "owner": "Priya",
+      "deadline": "Friday",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Backend",
+      "owner": "Rahul",
+      "deadline": "",
+      "status": "",
+      "blockers": "API"
+    },
+    {
+      "task": "Release",
+      "owner": "",
+      "deadline": "next Wednesday",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Complete user interface",
+      "owner": "Priya",
+      "deadline": "Friday",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Complete backend",
+      "owner": "Rahul",
+      "deadline": "",
+      "status": "",
+      "blockers": "API difficulties"
+    },
+    {
+      "task": "Complete the user interface",
+      "owner": "Priya",
+      "deadline": "Friday",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Backend development",
+      "owner": "Rahul",
+      "deadline": "",
+      "status": "",
+      "blockers": "API issue"
+    },
+    {
+      "task": "complete the user interface",
+      "owner": "Priya",
+      "deadline": "Friday",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "backend work",
+      "owner": "Rahul",
+      "deadline": "",
+      "status": "",
+      "blockers": "API issues"
+    },
+    {
+      "task": "Validate Rohit's list of locations and facilities",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Compile an exhaustive list of the current situation",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Create a comprehensive list of input/output formats for integration",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Document pain points and proposed structure in a sheet and share with the team",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Schedule a walkthrough with Mona and Rohit",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "2024-02-13",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Confirm with Rohit regarding the initial historical load versus incremental-only",
+      "owner": "Sushma K L",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Work on the three pointers discussed last evening",
+      "owner": "Japneet Kaur",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Validate Rohit's locations/facilities list; compile an exhaustive list of the current situation against what can be taken in",
+      "owner": "Mona Arumugam",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Define 1:1 software input/output formats for integration",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Document pain points and proposed structure in a sheet; share with the team",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Schedule a February 13, 12:00 walkthrough with Mona and Rohit; host walkthrough",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "2024-02-13",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Confirm with Rohit regarding the initial historical load vs incremental-only",
+      "owner": "Sushma K L",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Validate Rohit's locations/facilities list; compile exhaustive list",
+      "owner": "Mona Arumugam",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Define 1:1 software input/output formats for integration",
+      "owner": "Mona Arumugam",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Document pain points and proposed structure in sheet; share with team",
+      "owner": "",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Schedule Feb 13 12:00 walkthrough with Mona & Rohit; host walkthrough",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "2024-02-13",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Confirm with Rohit regarding initial historical load vs incremental-only",
+      "owner": "Sushma K L",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Work on the three pointers discussed last evening",
+      "owner": "Japneet Kaur",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Validate Rohit's locations/facilities list; compile an exhaustive list",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Define 1:1 software input/output formats for integration",
+      "owner": "",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Document pain points and proposed structure in a sheet; share with the team",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Schedule a walkthrough with Mona and Rohit; host a walkthrough",
+      "owner": "Nitin Bhardwaj",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Confirm with Rohit regarding the initial historical load vs incremental-only",
+      "owner": "Sushma K L",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    },
+    {
+      "task": "Work on the three pointers discussed last evening",
+      "owner": "Japneet Kaur",
+      "deadline": "",
+      "status": "",
+      "blockers": ""
+    }
+  ],
+  "decisions": [
+    "Postpone release to next Wednesday",
+    "Postpone the release to next Wednesday",
+    {
+      "decision": "postpone the release"
+    }
+  ],
+  "risks": []
+}
