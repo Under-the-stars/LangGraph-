@@ -35,11 +35,15 @@ class PipelineState(TypedDict, total=False):
     extractor_valid: bool
     extractor_retry_count: int
 
+    # Summarizer loop fields
+    summarizer_valid: bool
+    summarizer_retry_count: int
+
     # Updater loop fields
     updator_valid: bool
     updator_retry_count: int
 
-    # Reporter loop fields (NEW)
+    # Reporter loop fields
     reporter_valid: bool
     reporter_retry_count: int
 
@@ -119,7 +123,7 @@ def extractor_validator_node(state: PipelineState) -> PipelineState:
 #                   EXTRACTOR RETRY LOGIC
 # ============================================================
 
-MAX_RETRIES = 3
+MAX_EXTRACTOR_RETRIES = 3
 
 def extractor_retry_logic_node(state: PipelineState) -> PipelineState:
     if state.get("extractor_valid"):
@@ -127,7 +131,7 @@ def extractor_retry_logic_node(state: PipelineState) -> PipelineState:
 
     retry_count = state.get("extractor_retry_count", 0) + 1
 
-    if retry_count >= MAX_RETRIES:
+    if retry_count >= MAX_EXTRACTOR_RETRIES:
         raise ValueError("Extractor failed after 3 retries")
 
     return {
@@ -137,7 +141,7 @@ def extractor_retry_logic_node(state: PipelineState) -> PipelineState:
 
 
 # ============================================================
-#                   REMAINING NODES (UNCHANGED)
+#                   SUMMARIZER NODES
 # ============================================================
 
 def summarizer_node(state: PipelineState) -> PipelineState:
@@ -145,29 +149,54 @@ def summarizer_node(state: PipelineState) -> PipelineState:
     return {"summary_of_call": summary}
 
 
+def summarizer_validator_node(state: PipelineState) -> PipelineState:
+    summary = state.get("summary_of_call")
+
+    if not isinstance(summary, str):
+        return {"summarizer_valid": False}
+
+    stripped = summary.strip()
+    if not stripped:
+        return {"summarizer_valid": False}
+
+    if len(stripped) <= 20:
+        return {"summarizer_valid": False}
+
+    lowered = stripped.lower()
+    if lowered.startswith("i'm sorry") or lowered.startswith("i am sorry") or lowered.startswith("as an ai"):
+        return {"summarizer_valid": False}
+
+    if stripped.startswith("{") or stripped.startswith("["):
+        return {"summarizer_valid": False}
+
+    return {"summarizer_valid": True}
+
+
+MAX_SUMMARIZER_RETRIES = 3
+
+def summarizer_retry_logic_node(state: PipelineState) -> PipelineState:
+    if state.get("summarizer_valid"):
+        return {"next": "updator"}
+
+    retry_count = state.get("summarizer_retry_count", 0) + 1
+
+    if retry_count >= MAX_SUMMARIZER_RETRIES:
+        raise ValueError("Summarizer failed after 3 retries")
+
+    return {
+        "summarizer_retry_count": retry_count,
+        "next": "summarizer"
+    }
+
+
+# ============================================================
+#                   UPDATER NODES
+# ============================================================
+
 def updator_node(state: PipelineState) -> PipelineState:
     updated_state = update_state(state["extracted"])
     return {"updated_state": updated_state}
 
-
-def drive_matcher_node(state: PipelineState) -> PipelineState:
-    drive_link = find_matching_drive_file(state["file_path"])
-    return {"drive_link": drive_link}
-
-
-def reporter_node(state: PipelineState) -> PipelineState:
-    report_status = write_meeting_row(
-        summary_of_call=state["summary_of_call"],
-        extracted=state["extracted"],
-        drive_link=state["drive_link"],
-        spreadsheet_id=state["spreadsheet_id"],
-    )
-    return {"report_status": report_status}
-
-
-# ============================================================
-#                   MINIMAL UPDATER VALIDATOR
-# ============================================================
 
 UPDATOR_REQUIRED_KEYS = REQUIRED_KEYS
 
@@ -185,10 +214,6 @@ def updator_validator_node(state: PipelineState) -> PipelineState:
 
     return {"updator_valid": True}
 
-
-# ============================================================
-#                   UPDATER RETRY LOGIC
-# ============================================================
 
 MAX_UPDATOR_RETRIES = 3
 
@@ -208,8 +233,27 @@ def updator_retry_logic_node(state: PipelineState) -> PipelineState:
 
 
 # ============================================================
-#                   MINIMAL REPORTER VALIDATOR (NEW)
+#                   DRIVE MATCHER NODE
 # ============================================================
+
+def drive_matcher_node(state: PipelineState) -> PipelineState:
+    drive_link = find_matching_drive_file(state["file_path"])
+    return {"drive_link": drive_link}
+
+
+# ============================================================
+#                   REPORTER NODES
+# ============================================================
+
+def reporter_node(state: PipelineState) -> PipelineState:
+    report_status = write_meeting_row(
+        summary_of_call=state["summary_of_call"],
+        extracted=state["extracted"],
+        drive_link=state["drive_link"],
+        spreadsheet_id=state["spreadsheet_id"],
+    )
+    return {"report_status": report_status}
+
 
 def reporter_validator_node(state: PipelineState) -> PipelineState:
     report = state.get("report_status")
@@ -225,10 +269,6 @@ def reporter_validator_node(state: PipelineState) -> PipelineState:
 
     return {"reporter_valid": True}
 
-
-# ============================================================
-#                   REPORTER RETRY LOGIC (NEW)
-# ============================================================
 
 MAX_REPORTER_RETRIES = 3
 
@@ -254,24 +294,28 @@ def reporter_retry_logic_node(state: PipelineState) -> PipelineState:
 def build_pipeline_graph():
     graph = StateGraph(PipelineState)
 
-    # Register nodes
+    # Core nodes
     graph.add_node("loader", loader_node)
     graph.add_node("cleaner", cleaner_node)
     graph.add_node("extractor", extractor_node)
 
+    # Extractor loop
     graph.add_node("extractor_validator", extractor_validator_node)
     graph.add_node("extractor_retry_logic", extractor_retry_logic_node)
 
+    # Summarizer loop
     graph.add_node("summarizer", summarizer_node)
-    graph.add_node("updator", updator_node)
+    graph.add_node("summarizer_validator", summarizer_validator_node)
+    graph.add_node("summarizer_retry_logic", summarizer_retry_logic_node)
 
+    # Updater loop
+    graph.add_node("updator", updator_node)
     graph.add_node("updator_validator", updator_validator_node)
     graph.add_node("updator_retry_logic", updator_retry_logic_node)
 
+    # Drive matcher + reporter loop
     graph.add_node("drive_matcher", drive_matcher_node)
     graph.add_node("reporter", reporter_node)
-
-    # Reporter loop nodes (NEW)
     graph.add_node("reporter_validator", reporter_validator_node)
     graph.add_node("reporter_retry_logic", reporter_retry_logic_node)
 
@@ -280,10 +324,9 @@ def build_pipeline_graph():
     graph.add_edge("loader", "cleaner")
     graph.add_edge("cleaner", "extractor")
 
-    # Extractor loop
+    # Extractor loop wiring
     graph.add_edge("extractor", "extractor_validator")
     graph.add_edge("extractor_validator", "extractor_retry_logic")
-
     graph.add_conditional_edges(
         "extractor_retry_logic",
         lambda state: state["next"],
@@ -293,13 +336,21 @@ def build_pipeline_graph():
         }
     )
 
-    # Summarizer → Updater
-    graph.add_edge("summarizer", "updator")
+    # Summarizer loop wiring
+    graph.add_edge("summarizer", "summarizer_validator")
+    graph.add_edge("summarizer_validator", "summarizer_retry_logic")
+    graph.add_conditional_edges(
+        "summarizer_retry_logic",
+        lambda state: state["next"],
+        {
+            "summarizer": "summarizer",
+            "updator": "updator",
+        }
+    )
 
-    # Updater loop
+    # Updater loop wiring
     graph.add_edge("updator", "updator_validator")
     graph.add_edge("updator_validator", "updator_retry_logic")
-
     graph.add_conditional_edges(
         "updator_retry_logic",
         lambda state: state["next"],
@@ -309,13 +360,12 @@ def build_pipeline_graph():
         }
     )
 
-    # Drive matcher → Reporter
+    # Drive matcher → reporter
     graph.add_edge("drive_matcher", "reporter")
 
-    # Reporter loop (NEW)
+    # Reporter loop wiring
     graph.add_edge("reporter", "reporter_validator")
     graph.add_edge("reporter_validator", "reporter_retry_logic")
-
     graph.add_conditional_edges(
         "reporter_retry_logic",
         lambda state: state["next"],
