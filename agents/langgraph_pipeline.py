@@ -35,9 +35,13 @@ class PipelineState(TypedDict, total=False):
     extractor_valid: bool
     extractor_retry_count: int
 
-    # Updater loop fields (NEW)
+    # Updater loop fields
     updator_valid: bool
     updator_retry_count: int
+
+    # Reporter loop fields (NEW)
+    reporter_valid: bool
+    reporter_retry_count: int
 
 
 # ============================================================
@@ -80,18 +84,15 @@ REQUIRED_KEYS = {
 def extractor_validator_node(state: PipelineState) -> PipelineState:
     data = state.get("extracted")
 
-    # Must be dict
     if not isinstance(data, dict):
         return {"extractor_valid": False}
 
-    # Required keys + types
     for key, expected_type in REQUIRED_KEYS.items():
         if key not in data:
             return {"extractor_valid": False}
         if not isinstance(data[key], expected_type):
             return {"extractor_valid": False}
 
-    # Strict mode: lists must NOT be empty
     if len(data["tasks"]) == 0:
         return {"extractor_valid": False}
     if len(data["attendees"]) == 0:
@@ -99,7 +100,6 @@ def extractor_validator_node(state: PipelineState) -> PipelineState:
     if len(data["next_steps"]) == 0:
         return {"extractor_valid": False}
 
-    # Structure checks
     for t in data["tasks"]:
         if not isinstance(t, dict) or "task" not in t or "owner" not in t:
             return {"extractor_valid": False}
@@ -166,41 +166,28 @@ def reporter_node(state: PipelineState) -> PipelineState:
 
 
 # ============================================================
-#                   MINIMAL UPDATER VALIDATOR (NEW)
+#                   MINIMAL UPDATER VALIDATOR
 # ============================================================
 
-UPDATOR_REQUIRED_KEYS = {
-    "tasks": list,
-    "decisions": list,
-    "risks": list,
-    "updates": list,
-    "action_items": list,
-    "attendees": list,
-    "next_steps": list,
-    "meeting_date": str,
-    "meeting_time": str,
-}
+UPDATOR_REQUIRED_KEYS = REQUIRED_KEYS
 
 def updator_validator_node(state: PipelineState) -> PipelineState:
     updated = state.get("updated_state")
 
-    # Must be dict
     if not isinstance(updated, dict):
         return {"updator_valid": False}
 
-    # Required keys + types
     for key, expected_type in UPDATOR_REQUIRED_KEYS.items():
         if key not in updated:
             return {"updator_valid": False}
         if not isinstance(updated[key], expected_type):
             return {"updator_valid": False}
 
-    # Minimal validator: allow empty lists, no strict checks
     return {"updator_valid": True}
 
 
 # ============================================================
-#                   UPDATER RETRY LOGIC (NEW)
+#                   UPDATER RETRY LOGIC
 # ============================================================
 
 MAX_UPDATOR_RETRIES = 3
@@ -221,6 +208,46 @@ def updator_retry_logic_node(state: PipelineState) -> PipelineState:
 
 
 # ============================================================
+#                   MINIMAL REPORTER VALIDATOR (NEW)
+# ============================================================
+
+def reporter_validator_node(state: PipelineState) -> PipelineState:
+    report = state.get("report_status")
+
+    if not isinstance(report, dict):
+        return {"reporter_valid": False}
+
+    if "status" not in report:
+        return {"reporter_valid": False}
+
+    if report["status"] != "success":
+        return {"reporter_valid": False}
+
+    return {"reporter_valid": True}
+
+
+# ============================================================
+#                   REPORTER RETRY LOGIC (NEW)
+# ============================================================
+
+MAX_REPORTER_RETRIES = 3
+
+def reporter_retry_logic_node(state: PipelineState) -> PipelineState:
+    if state.get("reporter_valid"):
+        return {"next": END}
+
+    retry_count = state.get("reporter_retry_count", 0) + 1
+
+    if retry_count >= MAX_REPORTER_RETRIES:
+        raise ValueError("Reporter failed after 3 retries")
+
+    return {
+        "reporter_retry_count": retry_count,
+        "next": "reporter"
+    }
+
+
+# ============================================================
 #                   GRAPH CONSTRUCTION
 # ============================================================
 
@@ -232,19 +259,21 @@ def build_pipeline_graph():
     graph.add_node("cleaner", cleaner_node)
     graph.add_node("extractor", extractor_node)
 
-    # Extractor loop nodes
     graph.add_node("extractor_validator", extractor_validator_node)
     graph.add_node("extractor_retry_logic", extractor_retry_logic_node)
 
     graph.add_node("summarizer", summarizer_node)
     graph.add_node("updator", updator_node)
 
-    # Updater loop nodes (NEW)
     graph.add_node("updator_validator", updator_validator_node)
     graph.add_node("updator_retry_logic", updator_retry_logic_node)
 
     graph.add_node("drive_matcher", drive_matcher_node)
     graph.add_node("reporter", reporter_node)
+
+    # Reporter loop nodes (NEW)
+    graph.add_node("reporter_validator", reporter_validator_node)
+    graph.add_node("reporter_retry_logic", reporter_retry_logic_node)
 
     # Flow
     graph.add_edge(START, "loader")
@@ -267,7 +296,7 @@ def build_pipeline_graph():
     # Summarizer → Updater
     graph.add_edge("summarizer", "updator")
 
-    # Updater loop (NEW)
+    # Updater loop
     graph.add_edge("updator", "updator_validator")
     graph.add_edge("updator_validator", "updator_retry_logic")
 
@@ -280,9 +309,21 @@ def build_pipeline_graph():
         }
     )
 
-    # Continue pipeline
+    # Drive matcher → Reporter
     graph.add_edge("drive_matcher", "reporter")
-    graph.add_edge("reporter", END)
+
+    # Reporter loop (NEW)
+    graph.add_edge("reporter", "reporter_validator")
+    graph.add_edge("reporter_validator", "reporter_retry_logic")
+
+    graph.add_conditional_edges(
+        "reporter_retry_logic",
+        lambda state: state["next"],
+        {
+            "reporter": "reporter",
+            END: END,
+        }
+    )
 
     return graph.compile()
 
