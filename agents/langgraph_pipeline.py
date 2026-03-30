@@ -7,7 +7,7 @@ from agents.extractor import extract_structured
 from agents.summarizer import summarize_call
 from agents.updater import update_state
 from agents.reporter import write_meeting_row
-
+import time
 
 # ============================================================
 #                   STATE DEFINITION
@@ -30,6 +30,10 @@ class PipelineState(TypedDict, total=False):
 
     # Final
     report_status: Dict[str, Any]
+
+    # Cleaner loop fields
+    cleaner_valid: bool
+    cleaner_retry_count: int
 
     # Extractor loop fields
     extractor_valid: bool
@@ -67,6 +71,50 @@ def cleaner_node(state: PipelineState) -> PipelineState:
 def extractor_node(state: PipelineState) -> PipelineState:
     extracted = extract_structured(state["clean_text"], state["file_path"])
     return {"extracted": extracted}
+
+
+# ============================================================
+#                   CLEANER VALIDATOR + RETRY LOOP
+# ============================================================
+
+def cleaner_validator_node(state: PipelineState) -> PipelineState:
+    clean_text = state.get("clean_text")
+
+    if not isinstance(clean_text, str):
+        return {"cleaner_valid": False}
+
+    stripped = clean_text.strip()
+    if not stripped:
+        return {"cleaner_valid": False}
+
+    lowered = stripped.lower()
+    if lowered.startswith("i'm sorry") or lowered.startswith("i am sorry") or lowered.startswith("as an ai"):
+        return {"cleaner_valid": False}
+
+    return {"cleaner_valid": True}
+
+
+MAX_CLEANER_RETRIES = 1
+
+
+def cleaner_retry_logic_node(state: PipelineState) -> PipelineState:
+    if state.get("cleaner_valid"):
+        return {"next": "extractor"}
+
+    retry_count = state.get("cleaner_retry_count", 0) + 1
+
+    if retry_count >= MAX_CLEANER_RETRIES:
+        raise ValueError("Cleaner failed after retries")
+
+    # Option B — exponential backoff
+    backoff_seconds = 2 ** (retry_count - 1)
+    time.sleep(backoff_seconds)
+
+    return {
+        "cleaner_retry_count": retry_count,
+        "next": "cleaner"
+    }
+
 
 
 # ============================================================
@@ -172,7 +220,7 @@ def summarizer_validator_node(state: PipelineState) -> PipelineState:
     return {"summarizer_valid": True}
 
 
-MAX_SUMMARIZER_RETRIES = 3
+MAX_SUMMARIZER_RETRIES = 1
 
 def summarizer_retry_logic_node(state: PipelineState) -> PipelineState:
     if state.get("summarizer_valid"):
@@ -215,7 +263,7 @@ def updator_validator_node(state: PipelineState) -> PipelineState:
     return {"updator_valid": True}
 
 
-MAX_UPDATOR_RETRIES = 3
+MAX_UPDATOR_RETRIES = 1
 
 def updator_retry_logic_node(state: PipelineState) -> PipelineState:
     if state.get("updator_valid"):
@@ -270,7 +318,7 @@ def reporter_validator_node(state: PipelineState) -> PipelineState:
     return {"reporter_valid": True}
 
 
-MAX_REPORTER_RETRIES = 3
+MAX_REPORTER_RETRIES = 1
 
 def reporter_retry_logic_node(state: PipelineState) -> PipelineState:
     if state.get("reporter_valid"):
@@ -296,24 +344,21 @@ def build_pipeline_graph():
 
     # Core nodes
     graph.add_node("loader", loader_node)
-    graph.add_node("cleaner", cleaner_node)
-    graph.add_node("extractor", extractor_node)
+    graph.add_edge("cleaner", "extractor")
 
-    # Extractor loop
+
+    graph.add_node("extractor", extractor_node)
     graph.add_node("extractor_validator", extractor_validator_node)
     graph.add_node("extractor_retry_logic", extractor_retry_logic_node)
 
-    # Summarizer loop
     graph.add_node("summarizer", summarizer_node)
     graph.add_node("summarizer_validator", summarizer_validator_node)
     graph.add_node("summarizer_retry_logic", summarizer_retry_logic_node)
 
-    # Updater loop
     graph.add_node("updator", updator_node)
     graph.add_node("updator_validator", updator_validator_node)
     graph.add_node("updator_retry_logic", updator_retry_logic_node)
 
-    # Drive matcher + reporter loop
     graph.add_node("drive_matcher", drive_matcher_node)
     graph.add_node("reporter", reporter_node)
     graph.add_node("reporter_validator", reporter_validator_node)
@@ -322,9 +367,20 @@ def build_pipeline_graph():
     # Flow
     graph.add_edge(START, "loader")
     graph.add_edge("loader", "cleaner")
-    graph.add_edge("cleaner", "extractor")
 
-    # Extractor loop wiring
+    # Cleaner loop
+    graph.add_edge("cleaner", "cleaner_validator")
+    graph.add_edge("cleaner_validator", "cleaner_retry_logic")
+    graph.add_conditional_edges(
+        "cleaner_retry_logic",
+        lambda state: state["next"],
+        {
+            "cleaner": "cleaner",
+            "extractor": "extractor",
+        }
+    )
+
+    # Extractor loop
     graph.add_edge("extractor", "extractor_validator")
     graph.add_edge("extractor_validator", "extractor_retry_logic")
     graph.add_conditional_edges(
@@ -336,7 +392,7 @@ def build_pipeline_graph():
         }
     )
 
-    # Summarizer loop wiring
+    # Summarizer loop
     graph.add_edge("summarizer", "summarizer_validator")
     graph.add_edge("summarizer_validator", "summarizer_retry_logic")
     graph.add_conditional_edges(
@@ -348,7 +404,7 @@ def build_pipeline_graph():
         }
     )
 
-    # Updater loop wiring
+    # Updater loop
     graph.add_edge("updator", "updator_validator")
     graph.add_edge("updator_validator", "updator_retry_logic")
     graph.add_conditional_edges(
@@ -363,7 +419,7 @@ def build_pipeline_graph():
     # Drive matcher → reporter
     graph.add_edge("drive_matcher", "reporter")
 
-    # Reporter loop wiring
+    # Reporter loop
     graph.add_edge("reporter", "reporter_validator")
     graph.add_edge("reporter_validator", "reporter_retry_logic")
     graph.add_conditional_edges(
